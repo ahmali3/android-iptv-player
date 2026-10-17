@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
 import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -210,6 +211,9 @@ class EndToEndTest {
         rule.onNodeWithTag("tab_Guide").performClick()
         waitFor(what = "guide grid") { exists("guideGrid") && textExists("Derby Day Live") }
         screenshot("06_guide")
+        // A 2-hour program must be drawn about 480 dp wide, not squeezed to the screen width.
+        val blockWidth = rule.onNodeWithText("Derby Day Live").fetchSemanticsNode().size.width
+        assertTrue("guide block too narrow: $blockWidth px", blockWidth > with(rule.density) { 400.dp.toPx() })
         rule.onNodeWithText("Derby Day Live").performClick()
         waitFor(what = "program card") { exists("programCard") }
         screenshot("07_program")

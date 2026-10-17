@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -133,7 +134,8 @@ fun GuideScreen(
                             val x = xOf(t)
                             Text(
                                 clock(t), color = Pal.muted, fontSize = 12.sp, fontFamily = Pal.mono,
-                                modifier = Modifier.offset { IntOffset((x - offset).roundToInt() + 6, 16) },
+                                modifier = Modifier.offset { IntOffset((x - offset).roundToInt() + 6, 16) }
+                                    .wrapContentWidth(Alignment.Start, unbounded = true),
                             )
                             t += HALF_HOUR
                         }
@@ -226,6 +228,8 @@ private fun GuideRow(
                 Column(
                     Modifier
                         .offset { IntOffset((xOf(p.start) - offset()).roundToInt() + 2, 6.dp.roundToPx()) }
+                        // Programs can be wider than the visible track; let them overflow (clipped by the row).
+                        .wrapContentWidth(Alignment.Start, unbounded = true)
                         .width(w.coerceAtLeast(8.dp))
                         .height(52.dp)
                         .clip(RoundedCornerShape(10.dp))
