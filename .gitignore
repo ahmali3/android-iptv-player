@@ -1,0 +1,11 @@
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+app/release.keystore
+app/src/androidTest/assets/
+/out/
+/logs/
+/screens/
