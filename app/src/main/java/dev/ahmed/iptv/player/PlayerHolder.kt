@@ -21,6 +21,7 @@ import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import dev.ahmed.iptv.cast.CastManager
 import dev.ahmed.iptv.data.ChannelRow
 import dev.ahmed.iptv.data.Repo
 import java.util.Locale
@@ -30,7 +31,7 @@ import java.util.Locale
  * Video is decoded by the phone's hardware decoders; FFmpeg is only used for audio formats
  * the phone can't decode (AC3 / E-AC3 / DTS…).
  */
-class PlayerHolder(private val context: Context, private val repo: Repo) {
+class PlayerHolder(private val context: Context, private val repo: Repo, val cast: CastManager) {
 
     data class TrackOption(val type: Int, val groupIndex: Int, val trackIndex: Int, val label: String, val selected: Boolean)
 
@@ -42,11 +43,17 @@ class PlayerHolder(private val context: Context, private val repo: Repo) {
     /** Title shown when playing a catch-up program instead of the live channel. */
     var catchupTitle by mutableStateOf<String?>(null)
         private set
-    var isPlaying by mutableStateOf(false)
-        private set
-    var buffering by mutableStateOf(false)
-        private set
-    var error by mutableStateOf<String?>(null)
+    private var localPlaying by mutableStateOf(false)
+    private var localBuffering by mutableStateOf(false)
+    private var localError by mutableStateOf<String?>(null)
+
+    /** While casting, these describe playback on the TV. */
+    val isPlaying: Boolean get() = if (cast.casting) cast.remotePlaying else localPlaying
+    val buffering: Boolean get() = if (cast.casting) cast.remoteBuffering else localBuffering
+    val error: String? get() = if (cast.casting) cast.remoteError else localError
+
+    /** The stream address of what is playing now (live channel or catch-up). */
+    var currentUrl: String? = null
         private set
     /** Bumped when the available tracks change. */
     var tracksVersion by mutableIntStateOf(0)
@@ -56,6 +63,26 @@ class PlayerHolder(private val context: Context, private val repo: Repo) {
     private var playlistId = 0L
     private var retries = 0
     private val handler = Handler(Looper.getMainLooper())
+
+    /** Set by the activity; when casting ends in the background, the phone shouldn't start playing by itself. */
+    var appVisible = true
+
+    init {
+        cast.listener = object : CastManager.Listener {
+            override fun onCastStarted() {
+                // Hand the channel over to the TV and stop downloading it on the phone.
+                handler.removeCallbacksAndMessages(null)
+                _player?.stop()
+                val url = currentUrl ?: return
+                if (channel != null) castLoad(url)
+            }
+
+            override fun onCastEnded() {
+                val url = currentUrl ?: return
+                if (channel != null) startLocal(url, autoPlay = appVisible)
+            }
+        }
+    }
 
     private fun build(): ExoPlayer {
         val renderers = DefaultRenderersFactory(context)
@@ -81,14 +108,14 @@ class PlayerHolder(private val context: Context, private val repo: Repo) {
 
     private val listener = object : Player.Listener {
         override fun onIsPlayingChanged(playing: Boolean) {
-            isPlaying = playing
+            localPlaying = playing
         }
 
         override fun onPlaybackStateChanged(state: Int) {
-            buffering = state == Player.STATE_BUFFERING
+            localBuffering = state == Player.STATE_BUFFERING
             if (state == Player.STATE_READY) {
                 retries = 0
-                error = null
+                localError = null
             }
         }
 
@@ -98,16 +125,17 @@ class PlayerHolder(private val context: Context, private val repo: Repo) {
 
         override fun onPlayerError(e: PlaybackException) {
             val p = _player ?: return
+            if (cast.casting) return
             if (retries < MAX_RETRIES) {
                 retries++
-                error = "Reconnecting… ($retries/$MAX_RETRIES)"
+                localError = "Reconnecting… ($retries/$MAX_RETRIES)"
                 handler.postDelayed({
                     if (e.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) p.seekToDefaultPosition()
                     p.prepare()
                     p.play()
                 }, 1_000L * retries)
             } else {
-                error = describe(e)
+                localError = describe(e)
             }
         }
     }
@@ -132,15 +160,30 @@ class PlayerHolder(private val context: Context, private val repo: Repo) {
     }
 
     private fun start(url: String) {
+        currentUrl = url
+        if (cast.casting) {
+            handler.removeCallbacksAndMessages(null)
+            _player?.stop()
+            castLoad(url)
+        } else startLocal(url)
+    }
+
+    private fun castLoad(url: String) {
+        val ch = channel ?: return
+        val title = catchupTitle
+        cast.load(url, if (title != null) "${ch.name} · $title" else ch.name, if (title != null) "Catch-up" else ch.nowTitle, ch.logo)
+    }
+
+    private fun startLocal(url: String, autoPlay: Boolean = true) {
         handler.removeCallbacksAndMessages(null)
         retries = 0
-        error = null
+        localError = null
         val item = MediaItem.Builder().setUri(url).apply {
             if (url.contains(".m3u8", ignoreCase = true)) setMimeType(MimeTypes.APPLICATION_M3U8)
         }.build()
         player.setMediaItem(item)
         player.prepare()
-        player.play()
+        player.playWhenReady = autoPlay
     }
 
     /** Zaps to the next (+1) or previous (-1) channel in the list it was started from. */
@@ -155,6 +198,10 @@ class PlayerHolder(private val context: Context, private val repo: Repo) {
     fun currentList(): List<ChannelRow> = list
 
     fun togglePause() {
+        if (cast.casting) {
+            cast.togglePause()
+            return
+        }
         val p = _player ?: return
         if (p.isPlaying) p.pause() else {
             if (p.playbackState == Player.STATE_IDLE || p.playbackState == Player.STATE_ENDED) p.prepare()
@@ -168,16 +215,19 @@ class PlayerHolder(private val context: Context, private val repo: Repo) {
 
     fun stop() {
         handler.removeCallbacksAndMessages(null)
+        if (cast.casting) cast.stopRemote()
         _player?.stop()
         _player?.clearMediaItems()
         channel = null
         catchupTitle = null
-        error = null
+        currentUrl = null
+        localError = null
     }
 
     // ---------- tracks ----------
 
     fun tracks(type: Int): List<TrackOption> {
+        if (cast.casting) return emptyList()
         val p = _player ?: return emptyList()
         val out = ArrayList<TrackOption>()
         p.currentTracks.groups.forEachIndexed { gi, g ->
