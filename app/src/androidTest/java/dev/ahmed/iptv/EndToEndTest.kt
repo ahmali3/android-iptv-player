@@ -8,8 +8,10 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.media3.common.C
+import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import okhttp3.mockwebserver.Dispatcher
@@ -156,8 +158,9 @@ class EndToEndTest {
         rule.onNodeWithTag("fieldServer").performTextInput(base)
         rule.onNodeWithTag("fieldUser").performTextInput("demo")
         rule.onNodeWithTag("fieldPass").performTextInput("secret")
+        Espresso.closeSoftKeyboard()
         screenshot("02_add_playlist")
-        rule.onNodeWithTag("savePlaylist").performClick()
+        rule.onNodeWithTag("savePlaylist").performScrollTo().performClick()
 
         // ---- groups come from the provider, in its order ----
         waitFor(30_000, "provider groups") { exists("group_SOCCER") && exists("group_AR | NEWS") }
@@ -220,7 +223,8 @@ class EndToEndTest {
         waitFor(what = "m3u fields") { exists("fieldM3u") }
         rule.onNodeWithTag("fieldName").performTextInput("Backup")
         rule.onNodeWithTag("fieldM3u").performTextInput(server.url("/list.m3u").toString())
-        rule.onNodeWithTag("savePlaylist").performClick()
+        Espresso.closeSoftKeyboard()
+        rule.onNodeWithTag("savePlaylist").performScrollTo().performClick()
         waitFor(30_000, "m3u loaded") { exists("playlist_Backup") && !App.instance.refreshing && textExists("2 channels") }
         screenshot("08_playlists")
 
