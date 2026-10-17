@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.ahmed.iptv"
-        minSdk = 31
+        minSdk = 26 // Android 8.0
         targetSdk = 35
         versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
         versionName = "1.0." + (System.getenv("BUILD_NUMBER") ?: "1")
@@ -60,8 +60,11 @@ android {
     }
 
     lint {
+        // Only check for calls to Android APIs newer than minSdk; this runs before the unit tests.
+        checkOnly += setOf("NewApi", "InlinedApi")
+        error += setOf("NewApi")
+        abortOnError = true
         checkReleaseBuilds = false
-        abortOnError = false
     }
 }
 
@@ -85,12 +88,17 @@ dependencies {
     // FFmpeg audio decoder: AC3 / E-AC3 / DTS and other formats the phone can't decode itself.
     implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1")
 
+    // Chromecast / Google Cast (also built into Android TV devices like the Nvidia Shield).
+    implementation("com.google.android.gms:play-services-cast-framework:21.5.0")
+    implementation("androidx.mediarouter:mediarouter:1.7.0")
+
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.code.gson:gson:2.11.0") // only its streaming JsonReader is used
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("net.sf.kxml:kxml2:2.3.0") // XmlPullParser implementation for JVM tests
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
@@ -100,3 +108,6 @@ dependencies {
     androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+
+// Fail the build early if code calls an Android API that older supported phones don't have.
+tasks.matching { it.name == "testDebugUnitTest" }.configureEach { dependsOn("lintDebug") }

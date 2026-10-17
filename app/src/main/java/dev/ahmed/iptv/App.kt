@@ -11,6 +11,7 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
+import dev.ahmed.iptv.cast.CastManager
 import dev.ahmed.iptv.data.Db
 import dev.ahmed.iptv.data.Playlist
 import dev.ahmed.iptv.data.Repo
@@ -20,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class App : Application(), ImageLoaderFactory {
@@ -52,8 +54,11 @@ class App : Application(), ImageLoaderFactory {
         instance = this
         db = Db(this)
         repo = Repo(this, db)
-        player = PlayerHolder(this, repo)
+        val cast = CastManager(this, repo.http)
+        player = PlayerHolder(this, repo, cast)
         activePlaylistId = prefs().getLong(KEY_ACTIVE, 0L)
+        // Start Cast once the first screen is up, so it doesn't slow down app start.
+        android.os.Looper.myQueue().addIdleHandler { cast.init(); false }
     }
 
     private fun prefs() = getSharedPreferences("settings", Context.MODE_PRIVATE)

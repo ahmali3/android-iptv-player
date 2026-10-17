@@ -3,6 +3,7 @@ package dev.ahmed.iptv
 import android.app.PictureInPictureParams
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.util.Rational
 import androidx.activity.ComponentActivity
@@ -136,18 +137,28 @@ class MainActivity : ComponentActivity() {
         } else {
             ctl.show(WindowInsetsCompat.Type.systemBars())
         }
-        setPictureInPictureParams(pipParams(autoEnter = on))
+        setPictureInPictureParams(pipParams(autoEnter = on && !App.instance.player.cast.casting))
     }
 
-    private fun pipParams(autoEnter: Boolean): PictureInPictureParams =
-        PictureInPictureParams.Builder()
-            .setAspectRatio(Rational(16, 9))
-            .setAutoEnterEnabled(autoEnter)
-            .setSeamlessResizeEnabled(true)
-            .build()
+    private fun pipParams(autoEnter: Boolean): PictureInPictureParams {
+        val b = PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            b.setAutoEnterEnabled(autoEnter)
+            b.setSeamlessResizeEnabled(true)
+        }
+        return b.build()
+    }
+
+    /** Android 11 and older can't enter picture-in-picture by themselves when you go home. */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && playerOpen && !App.instance.player.cast.casting && App.instance.player.channel != null) {
+            runCatching { enterPictureInPictureMode(pipParams(autoEnter = false)) }
+        }
+    }
 
     private fun enterPip() {
-        if (App.instance.player.channel != null) enterPictureInPictureMode(pipParams(autoEnter = playerOpen))
+        if (App.instance.player.channel != null && !App.instance.player.cast.casting) enterPictureInPictureMode(pipParams(autoEnter = playerOpen))
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
@@ -155,8 +166,14 @@ class MainActivity : ComponentActivity() {
         inPip = isInPictureInPictureMode
     }
 
+    override fun onStart() {
+        super.onStart()
+        App.instance.player.appVisible = true
+    }
+
     override fun onStop() {
         super.onStop()
+        App.instance.player.appVisible = isInPictureInPictureMode
         // Keep playing in picture-in-picture; otherwise stop using data in the background.
         if (!isInPictureInPictureMode && !isChangingConfigurations) App.instance.player.pause()
     }

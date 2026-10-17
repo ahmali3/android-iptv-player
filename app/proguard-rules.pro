@@ -4,3 +4,5 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+# Named in the manifest as a string, so R8 can't see it's used.
+-keep class dev.ahmed.iptv.cast.CastOptionsProvider { *; }
