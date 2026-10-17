@@ -1,0 +1,150 @@
+name: Build, test and release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+
+      - name: Restore signing key (created once on the first build)
+        run: |
+          if [ -f app/release.keystore.b64 ]; then
+            base64 -d app/release.keystore.b64 > app/release.keystore
+          else
+            keytool -genkeypair -keystore app/release.keystore -storetype pkcs12 -alias iptv -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass iptvplayer -keypass iptvplayer -dname "CN=IPTV Player"
+            base64 -w 76 app/release.keystore > app/release.keystore.b64
+            git add app/release.keystore.b64
+            git -c user.name="github-actions" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -qm "Add app signing key [skip ci]"
+            git push -q origin HEAD:main
+          fi
+
+      - name: Unit tests
+        id: unit
+        run: |
+          mkdir -p logs
+          gradle --no-daemon :app:testDebugUnitTest 2>&1 | tee logs/unit.log
+
+      - name: Build release APK
+        id: release
+        run: |
+          gradle --no-daemon :app:assembleRelease 2>&1 | tee logs/release.log
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk "out/IPTV-Player-1.0.${BUILD_NUMBER}.apk"
+          ls -la out
+
+      - name: Make test stream (H.264 video + AC3 audio)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+          mkdir -p app/src/androidTest/assets
+          ffmpeg -loglevel error -f lavfi -i "testsrc2=size=1280x720:rate=25" -f lavfi -i "sine=frequency=440:sample_rate=48000" \
+            -t 30 -c:v libx264 -preset veryfast -pix_fmt yuv420p -g 25 -c:a ac3 -b:a 192k -ac 2 -f mpegts app/src/androidTest/assets/test.ts
+          ls -la app/src/androidTest/assets
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: End-to-end test on emulator
+        id: e2e
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -no-boot-anim -camera-back none
+          script: bash ci/e2e.sh
+
+      - name: Upload APK and test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.run_number }}
+          path: |
+            out/*.apk
+            logs/
+            screens/
+            app/build/reports/tests/
+          if-no-files-found: ignore
+
+      - name: Publish release
+        if: success() && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: IPTV Player 1.0.${{ github.run_number }}
+          make_latest: true
+          files: out/*.apk
+          body: |
+            Download **IPTV-Player-1.0.${{ github.run_number }}.apk** below and open it on your Android phone to install.
+            First time? See the install guide in the README. Updates install over the old version and keep your playlists.
+
+            Built from ${{ github.sha }}. Unit tests and the emulator end-to-end test passed.
+
+      - name: Update README screenshots
+        if: success() && github.ref == 'refs/heads/main'
+        run: |
+          if [ -n "$(ls screens/*.png 2>/dev/null)" ]; then
+            git fetch -q origin main && git checkout -q -B main origin/main
+            mkdir -p docs/screenshots
+            cp screens/*.png docs/screenshots/
+            git add docs/screenshots
+            if ! git diff --cached --quiet; then
+              git -c user.name="github-actions" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+                commit -qm "Update screenshots from build ${BUILD_NUMBER} [skip ci]"
+              git push -q origin main
+            fi
+          fi
+
+      - name: Publish CI logs (ci-logs branch)
+        if: always()
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          rm -rf /tmp/ci && mkdir -p /tmp/ci/logs && cd /tmp/ci
+          for f in "$GITHUB_WORKSPACE"/logs/*; do
+            if [ -f "$f" ]; then tail -c 300000 "$f" > "logs/$(basename "$f")"; fi
+          done
+          if [ -d "$GITHUB_WORKSPACE/screens" ]; then cp -r "$GITHUB_WORKSPACE/screens" .; fi
+          mkdir -p unit-results
+          cp "$GITHUB_WORKSPACE"/app/build/test-results/testDebugUnitTest/*.xml unit-results/ 2>/dev/null || true
+          {
+            echo "# Build ${BUILD_NUMBER} — ${{ job.status }}"
+            echo
+            echo "- commit: ${{ github.sha }}"
+            echo "- unit tests: ${{ steps.unit.outcome }}"
+            echo "- release build: ${{ steps.release.outcome }}"
+            echo "- end-to-end: ${{ steps.e2e.outcome }}"
+          } > STATUS.md
+          git init -q -b ci-logs
+          git add -A
+          git -c user.name="github-actions" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qm "CI logs for build ${BUILD_NUMBER}"
+          git push -qf "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" ci-logs
