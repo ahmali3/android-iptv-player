@@ -131,6 +131,13 @@ class EndToEndTest {
         File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 
+    /** ExoPlayer may only be touched on the main thread. */
+    private fun <T> onUi(block: () -> T): T {
+        var result: Result<T>? = null
+        rule.runOnUiThread { result = runCatching(block) }
+        return result!!.getOrThrow()
+    }
+
     private fun back() {
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
         rule.waitForIdle()
@@ -167,8 +174,8 @@ class EndToEndTest {
         // ---- play: video + AC3 audio through FFmpeg ----
         rule.onNodeWithTag("channel_Pitch One").performClick()
         waitFor(30_000, "playback to start") { App.instance.player.isPlaying }
-        waitFor(what = "audio track") { App.instance.player.tracks(C.TRACK_TYPE_AUDIO).isNotEmpty() }
-        val audio = App.instance.player.tracks(C.TRACK_TYPE_AUDIO)
+        waitFor(what = "audio track") { onUi { App.instance.player.tracks(C.TRACK_TYPE_AUDIO) }.isNotEmpty() }
+        val audio = onUi { App.instance.player.tracks(C.TRACK_TYPE_AUDIO) }
         assertTrue("AC3 track should be playable: $audio", audio.any { it.label.contains("Dolby Digital") && it.selected })
         Thread.sleep(2_000)
         assertTrue("still playing after 2 s", App.instance.player.isPlaying)
