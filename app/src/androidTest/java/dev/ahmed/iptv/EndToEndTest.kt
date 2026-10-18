@@ -4,10 +4,12 @@ import android.app.Instrumentation
 import android.content.Intent
 import android.graphics.Bitmap
 import android.util.Log
+import android.view.KeyEvent
 import android.os.SystemClock
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -144,6 +146,12 @@ class EndToEndTest {
         return result!!.getOrThrow()
     }
 
+    /** Presses a key as a TV remote would. */
+    private fun key(code: Int) {
+        InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(code)
+        rule.waitForIdle()
+    }
+
     /** Brings back the player controls, which hide after a few seconds. */
     private fun showControls() {
         if (!exists("playerMenu")) rule.onNodeWithTag("player").performClick()
@@ -199,6 +207,21 @@ class EndToEndTest {
         waitFor(what = "zap to next channel") { App.instance.player.channel?.name == "Pitch Two" }
         waitFor(30_000, "playback after zap") { App.instance.player.isPlaying }
 
+        // ---- TV remote: with the controls hidden, up/down change channel and OK shows the controls ----
+        waitFor(15_000, "controls hide by themselves") { !exists("playerMenu") }
+        key(KeyEvent.KEYCODE_DPAD_UP)
+        waitFor(what = "remote up -> next channel") { App.instance.player.channel?.name == "Pitch One" }
+        key(KeyEvent.KEYCODE_DPAD_DOWN)
+        waitFor(what = "remote down -> previous channel") { App.instance.player.channel?.name == "Pitch Two" }
+        key(KeyEvent.KEYCODE_CHANNEL_UP)
+        waitFor(what = "channel-up button") { App.instance.player.channel?.name == "Pitch One" }
+        key(KeyEvent.KEYCODE_CHANNEL_DOWN)
+        waitFor(what = "channel-down button") { App.instance.player.channel?.name == "Pitch Two" }
+        key(KeyEvent.KEYCODE_DPAD_CENTER)
+        waitFor(what = "OK shows the controls") { exists("playerMenu") }
+        assertTrue("OK must not also pause", App.instance.player.isPlaying || App.instance.player.buffering)
+        waitFor(30_000, "playback after remote zapping") { App.instance.player.isPlaying }
+
         // ---- "Open in another app" hands the stream to VLC & co. through the system chooser ----
         var chooser: Intent? = null
         val monitor = object : Instrumentation.ActivityMonitor() {
@@ -247,6 +270,20 @@ class EndToEndTest {
         waitFor(what = "favorite star") { textExists("Favorite") || exists("channel_Pitch One") }
         back() // back to groups
         waitFor(what = "groups again") { exists("tile_Favorites") }
+
+        // ---- search results stay after playing one of them and coming back ----
+        rule.onNodeWithTag("search").performTextInput("Pitch")
+        waitFor(what = "search results") { exists("channel_Pitch One") && exists("channel_Pitch Two") }
+        rule.onNodeWithTag("channel_Pitch Two").performClick()
+        waitFor(what = "player from search") { exists("player") }
+        back()
+        waitFor(what = "search results kept") { exists("channel_Pitch One") && exists("channel_Pitch Two") && textExists("Pitch") }
+        rule.onNodeWithContentDescription("Clear search").performClick()
+        waitFor(what = "groups after clearing search") { exists("tile_Favorites") }
+
+        // ---- shows up on the Android TV home screen ----
+        val tvLaunch = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER).setPackage(rule.activity.packageName)
+        assertTrue("TV launcher entry", rule.activity.packageManager.queryIntentActivities(tvLaunch, 0).isNotEmpty())
 
         // channel without tvg-id got its guide by name matching
         rule.onNodeWithTag("group_KIDS").performClick()
