@@ -2,7 +2,6 @@ package dev.ahmed.iptv
 
 import android.app.Instrumentation
 import android.content.Intent
-import android.graphics.Bitmap
 import android.util.Log
 import android.view.KeyEvent
 import android.os.SystemClock
@@ -32,7 +31,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -41,7 +39,7 @@ import java.time.format.DateTimeFormatter
  * Drives the real app against a fake IPTV provider running on the emulator:
  * adds an Xtream playlist, checks groups, channels and the guide, plays a channel whose
  * audio is AC3 (Dolby Digital, which only plays through the bundled FFmpeg decoder),
- * then adds an M3U playlist. Screenshots are saved for the README.
+ * then adds an M3U playlist.
  */
 @RunWith(AndroidJUnit4::class)
 class EndToEndTest {
@@ -131,14 +129,6 @@ class EndToEndTest {
     private fun exists(tag: String) = rule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
     private fun textExists(text: String) = rule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty()
 
-    private fun screenshot(name: String) {
-        rule.waitForIdle()
-        Thread.sleep(600)
-        val bmp: Bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot() ?: return
-        val dir = File(rule.activity.filesDir, "screens").apply { mkdirs() }
-        File(dir, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-    }
-
     /** ExoPlayer may only be touched on the main thread. */
     private fun <T> onUi(block: () -> T): T {
         var result: Result<T>? = null
@@ -169,7 +159,6 @@ class EndToEndTest {
 
         // ---- first launch: welcome, add an Xtream playlist ----
         waitFor(what = "welcome screen") { textExists("Welcome") }
-        screenshot("01_welcome")
         rule.onNodeWithText("Add playlist").performClick()
         waitFor(what = "add sheet") { exists("fieldServer") }
         rule.onNodeWithTag("fieldName").performTextInput("Home")
@@ -177,20 +166,17 @@ class EndToEndTest {
         rule.onNodeWithTag("fieldUser").performTextInput("demo")
         rule.onNodeWithTag("fieldPass").performTextInput("secret")
         Espresso.closeSoftKeyboard()
-        screenshot("02_add_playlist")
         rule.onNodeWithTag("savePlaylist").performScrollTo().performClick()
 
         // ---- groups come from the provider, in its order ----
         waitFor(30_000, "provider groups") { exists("group_SOCCER") && exists("group_AR | NEWS") }
         waitFor(30_000, "guide loaded") { !App.instance.refreshing }
-        screenshot("03_groups")
 
         // ---- channels in a group, with what's on now from the guide ----
         rule.onNodeWithTag("group_SOCCER").performClick()
         waitFor(what = "channels") { exists("channel_Pitch One") && exists("channel_Pitch Two") }
         waitFor(what = "now playing from the guide") { textExists("Derby Day Live") }
         assertTrue("Cartoon Hub is in another group", !exists("channel_Cartoon Hub"))
-        screenshot("04_channels")
 
         // ---- play: video + AC3 audio through FFmpeg ----
         rule.onNodeWithTag("channel_Pitch One").performClick()
@@ -200,7 +186,6 @@ class EndToEndTest {
         assertTrue("AC3 track should be playable: $audio", audio.any { it.label.contains("Dolby Digital") && it.selected })
         Thread.sleep(2_000)
         assertTrue("still playing after 2 s", App.instance.player.isPlaying)
-        screenshot("05_player")
 
         // swipe-to-zap equivalent
         rule.runOnUiThread { App.instance.player.zap(+1) }
@@ -236,7 +221,6 @@ class EndToEndTest {
         showControls()
         rule.onNodeWithTag("playerMenu").performClick()
         waitFor(what = "player menu") { exists("openExternal") }
-        screenshot("09_player_menu")
         rule.onNodeWithTag("openExternal").performClick()
         waitFor(what = "chooser intent") { chooser != null }
         InstrumentationRegistry.getInstrumentation().removeMonitor(monitor)
@@ -254,7 +238,6 @@ class EndToEndTest {
             showControls()
             rule.onNodeWithTag("castButton").performClick()
             waitFor(what = "cast dialog") { textExists("Looking for TVs") || exists("castNone") }
-            screenshot("10_cast")
             rule.onNodeWithText("Close").performClick()
             waitFor(what = "cast dialog closed") { !exists("castDialog") }
         }
@@ -274,10 +257,12 @@ class EndToEndTest {
 
         // ---- search results stay after playing one of them and coming back ----
         rule.onNodeWithTag("search").performTextInput("Pitch")
+        rule.mainClock.advanceTimeBy(1_000) // search waits briefly after typing (simulated clock in tests)
         waitFor(what = "search results") { exists("channel_Pitch One") && exists("channel_Pitch Two") }
         rule.onNodeWithTag("channel_Pitch Two").performClick()
         waitFor(what = "player from search") { exists("player") }
         back()
+        rule.mainClock.advanceTimeBy(1_000)
         waitFor(what = "search results kept") { exists("channel_Pitch One") && exists("channel_Pitch Two") && textExists("Pitch") }
         rule.onNodeWithContentDescription("Clear search").performClick()
         waitFor(what = "groups after clearing search") { exists("tile_Favorites") }
@@ -294,13 +279,11 @@ class EndToEndTest {
         // ---- guide grid ----
         rule.onNodeWithTag("tab_Guide").performClick()
         waitFor(what = "guide grid") { exists("guideGrid") && textExists("Derby Day Live") }
-        screenshot("06_guide")
         // A 2-hour program must be drawn about 480 dp wide, not squeezed to the screen width.
         val blockWidth = rule.onNodeWithText("Derby Day Live").fetchSemanticsNode().size.width
         assertTrue("guide block too narrow: $blockWidth px", blockWidth > with(rule.density) { 400.dp.toPx() })
         rule.onNodeWithText("Derby Day Live").performClick()
         waitFor(what = "program card") { exists("programCard") }
-        screenshot("07_program")
 
         // ---- add an M3U playlist and switch to it ----
         rule.onNodeWithTag("tab_Playlists").performClick()
@@ -314,7 +297,6 @@ class EndToEndTest {
         Espresso.closeSoftKeyboard()
         rule.onNodeWithTag("savePlaylist").performScrollTo().performClick()
         waitFor(30_000, "m3u loaded") { exists("playlist_Backup") && !App.instance.refreshing && textExists("2 channels") }
-        screenshot("08_playlists")
 
         rule.onNodeWithTag("tab_Live").performClick()
         waitFor(what = "m3u groups") { exists("group_MOVIES") && exists("group_MUSIC") }

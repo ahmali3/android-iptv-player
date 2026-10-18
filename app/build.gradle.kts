@@ -142,3 +142,6 @@ tasks.matching { it.name == "assembleRelease" }.configureEach { finalizedBy(copy
 
 // Fail the build early if code calls an Android API that older supported phones don't have.
 tasks.matching { it.name == "testDebugUnitTest" }.configureEach { dependsOn("lintDebug") }
+
+// LG webOS and Roku apps: tested with the unit tests, packaged with the release.
+apply(from = "../tv-apps.gradle.kts")
