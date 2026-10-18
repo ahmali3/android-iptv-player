@@ -1,12 +1,14 @@
 package dev.ahmed.iptv.ui
 
 import android.view.ViewGroup
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -51,10 +53,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -94,6 +106,23 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
     val context = LocalContext.current
     val cast = holder.cast
     val casting = cast.casting
+    val showCast = cast.available && !app.isTv
+
+    // ---- TV remote / keyboard ----
+    val inputMode = LocalInputModeManager.current
+    val rootFocus = remember { FocusRequester() }
+    val playFocus = remember { FocusRequester() }
+    val swallow = remember { arrayOfNulls<Key>(1) } // key whose release we already handled
+    LaunchedEffect(overlay, showList) {
+        if (showList) return@LaunchedEffect
+        // Controls showing: put the remote on Play/Pause. Hidden: the screen itself takes the keys.
+        if (overlay && inputMode.inputMode == InputMode.Keyboard) runCatching { playFocus.requestFocus() }
+        else if (!overlay) runCatching { rootFocus.requestFocus() }
+    }
+    val isFav by produceState(false, ch?.key, app.dataVersion) {
+        val c = ch ?: return@produceState
+        value = withContext(Dispatchers.IO) { app.db.isFavorite(app.activePlaylistId, c.key) }
+    }
 
     LaunchedEffect(overlay, poke, showList, casting, menu) {
         // While casting there is no video on the phone, so the controls stay up.
@@ -106,6 +135,41 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
         overlay = true
         poke++
     }
+
+    /** Remote keys: up/down change channel, OK shows the controls, left opens the channel list. */
+    fun onKey(e: KeyEvent): Boolean {
+        if (e.type != KeyEventType.KeyDown) {
+            if (swallow[0] == e.key) {
+                swallow[0] = null
+                return true
+            }
+            return false
+        }
+        fun handled(): Boolean {
+            swallow[0] = e.key
+            return true
+        }
+        when (e.key) {
+            Key.ChannelUp -> { holder.zap(+1); return handled() }
+            Key.ChannelDown -> { holder.zap(-1); return handled() }
+            Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause -> { holder.togglePause(); touch(); return handled() }
+        }
+        if (showList || castDialog || trackDialog != null || menu) return false
+        if (!overlay) {
+            when (e.key) {
+                Key.DirectionUp -> { holder.zap(+1); return handled() }
+                Key.DirectionDown -> { holder.zap(-1); return handled() }
+                Key.DirectionLeft -> { showList = true; return handled() }
+                Key.DirectionCenter, Key.Enter, Key.NumPadEnter, Key.DirectionRight -> { touch(); return handled() }
+            }
+            return false
+        }
+        poke++ // any key keeps the controls up
+        return false
+    }
+
+    BackHandler(enabled = showList) { showList = false }
+    BackHandler(enabled = app.isTv && overlay && !showList) { overlay = false }
 
     val programs by produceState<List<Program>>(emptyList(), ch?.id, now / 60_000, app.dataVersion) {
         val c = ch ?: return@produceState
@@ -127,6 +191,9 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
             .fillMaxSize()
             .background(Color.Black)
             .testTag("player")
+            .focusRequester(rootFocus)
+            .onPreviewKeyEvent { if (inPip) false else onKey(it) }
+            .focusable()
             .pointerInput(inPip) {
                 if (!inPip) detectTapGestures(onTap = { if (overlay) overlay = false else touch() }, onDoubleTap = { holder.togglePause(); touch() })
             }
@@ -208,11 +275,16 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
                         TextAction("Subtitles") { trackDialog = MC.TRACK_TYPE_TEXT; touch() }
                         TextAction(aspectModes[aspect].second) { aspect = (aspect + 1) % aspectModes.size; touch() }
                     }
-                    if (cast.available) TextAction(if (casting) "Casting" else "Cast", if (casting) Pal.accent else Pal.text, "castButton") { castDialog = true; touch() }
+                    if (showCast) TextAction(if (casting) "Casting" else "Cast", if (casting) Pal.accent else Pal.text, "castButton") { castDialog = true; touch() }
                     IconButton(onClick = { showList = !showList; touch() }) { Icon(Icons.Filled.List, "Channel list", tint = if (showList) Pal.accent else Pal.text) }
                     Box {
                         IconButton(onClick = { menu = true; touch() }, modifier = Modifier.testTag("playerMenu")) { Icon(Icons.Filled.MoreVert, "More", tint = Pal.text) }
                         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            if (ch != null && holder.catchupTitle == null) DropdownMenuItem(
+                                text = { Text(if (isFav) "Remove from favorites" else "Add to favorites") },
+                                modifier = Modifier.testTag("favoriteToggle"),
+                                onClick = { menu = false; toggleFav(app.activePlaylistId, ch.copy(favorite = isFav)) },
+                            )
                             if (!casting) DropdownMenuItem(text = { Text("Picture-in-picture") }, onClick = { menu = false; onPip() })
                             DropdownMenuItem(
                                 text = { Text("Open in another app (VLC…)") },
@@ -236,6 +308,7 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
                         .size(64.dp)
                         .clip(RoundedCornerShape(32.dp))
                         .background(scrim)
+                        .focusRequester(playFocus)
                         .clickable { holder.togglePause(); touch() }
                         .testTag("playPause"),
                     contentAlignment = Alignment.Center,
@@ -256,7 +329,7 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
                         ProgressLine(progressOf(current.start, current.stop, now), Modifier.fillMaxWidth(), 4.dp, Color(0xFF3A4048))
                     }
                     if (next != null && holder.catchupTitle == null) Text("Next · ${clock(next.start)} ${next.title}", color = Pal.text2, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("Swipe up or down to change channel", color = Pal.muted, fontSize = 12.sp)
+                    Text(if (app.isTv) "Up / down to change channel · left for the channel list" else "Swipe up or down to change channel", color = Pal.muted, fontSize = 12.sp)
                 }
             }
         }
@@ -275,6 +348,12 @@ private fun ChannelPanel(modifier: Modifier, onClose: () -> Unit) {
     val cur = holder.channel
     val start = list.indexOfFirst { it.id == cur?.id }.coerceAtLeast(0)
     val state = rememberLazyListState((start - 2).coerceAtLeast(0))
+    val currentFocus = remember { FocusRequester() }
+    val inputMode = LocalInputModeManager.current
+    LaunchedEffect(Unit) {
+        // With a remote, start on the channel that's playing.
+        if (inputMode.inputMode == InputMode.Keyboard) runCatching { currentFocus.requestFocus() }
+    }
     Column(
         modifier.width(300.dp).fillMaxHeight().background(Color(0xF0121519)).safeDrawingPadding(),
     ) {
@@ -292,6 +371,7 @@ private fun ChannelPanel(modifier: Modifier, onClose: () -> Unit) {
                         .clip(RoundedCornerShape(10.dp))
                         .background(if (on) Pal.raised else Color.Transparent)
                         .border(1.dp, if (on) Pal.accent else Color.Transparent, RoundedCornerShape(10.dp))
+                        .then(if (on) Modifier.focusRequester(currentFocus) else Modifier)
                         .clickable { holder.play(list, i, App.instance.activePlaylistId) }
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
