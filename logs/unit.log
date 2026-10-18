@@ -1,0 +1,107 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:generateDebugResValues
+> Task :app:checkDebugAarMetadata
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :app:parseDebugLocalResources
+> Task :app:mergeDebugResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug
+> Task :app:processDebugManifestForPackage
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:javaPreCompileDebugUnitTest
+> Task :app:generateDebugAndroidTestResValues
+> Task :app:extractProguardFiles
+> Task :app:rokuImages
+> Task :app:processDebugResources
+
+> Task :app:rokuCheck
+npm warn deprecated lodash.isequal@4.5.0: This package is deprecated. Use require('node:util').isDeepStrictEqual instead.
+[[90m05:48:21:895 AM[39m] Using config file: "bsconfig.json"
+[[90m05:48:21:896 AM[39m] Loading 0 plugins for cwd "/home/runner/work/android-iptv-player/android-iptv-player/roku" []
+[[90m05:48:21:901 AM[39m] Parsing files
+[[90m05:48:22:008 AM[39m] Parsing files finished. ([34m106.896ms[39m)
+[[90m05:48:22:009 AM[39m] Validating project
+[[90m05:48:22:031 AM[39m] Validating project finished. ([34m22.281ms[39m)
+
+components/MainScene.brs:393:5 - error BS1045: Cannot use reserved word 'pos' as an identifier
+
+ 393      pos = m.channels.itemFocused
+          ~~~                         
+
+
+components/MainScene.brs:396:8 - error BS1147: 'pos' is a reserved builtin and can only be used as a function call (e.g. 'pos(...)')
+
+ 396      if pos >= 0 and pos < m.shown.Count() then m.channels.jumpToItem = pos
+             ~~~                                                                
+
+
+components/MainScene.brs:396:21 - error BS1147: 'pos' is a reserved builtin and can only be used as a function call (e.g. 'pos(...)')
+
+ 396      if pos >= 0 and pos < m.shown.Count() then m.channels.jumpToItem = pos
+                          ~~~                                                   
+
+
+components/MainScene.brs:396:72 - error BS1147: 'pos' is a reserved builtin and can only be used as a function call (e.g. 'pos(...)')
+
+ 396      if pos >= 0 and pos < m.shown.Count() then m.channels.jumpToItem = pos
+                                                                             ~~~
+
+
+components/MainScene.brs:651:9 - error BS1045: Cannot use reserved word 'pos' as an identifier
+
+ 651          pos = m.channels.itemFocused
+              ~~~                         
+
+
+components/MainScene.brs:654:12 - error BS1147: 'pos' is a reserved builtin and can only be used as a function call (e.g. 'pos(...)')
+
+ 654          if pos < m.shown.Count() then m.channels.jumpToItem = pos
+                 ~~~                                                   
+
+
+components/MainScene.brs:654:63 - error BS1147: 'pos' is a reserved builtin and can only be used as a function call (e.g. 'pos(...)')
+
+ 654          if pos < m.shown.Count() then m.channels.jumpToItem = pos
+                                                                    ~~~
+
+
+components/NetTask.brs:5:5 - error BS1105: Scope function will not be accessible because it has the same name as a built-in function
+
+ 5  sub run()
+        ~~~  
+
+
+components/NetTask.brs:5:5 - error BS1045: Cannot use reserved word 'run' as an identifier
+
+ 5  sub run()
+        ~~~  
+
+[[90m05:48:22:035 AM[39m] Found 9 errors
+
+> Task :app:rokuCheck FAILED
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/unit-1792302480156.json
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:rokuCheck'.
+> Process 'command 'bash'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 28s
+19 actionable tasks: 19 executed

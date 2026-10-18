@@ -1,0 +1,110 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :app:mergeReleaseJniLibFolders
+> Task :app:mergeReleaseNativeLibs
+> Task :app:buildKotlinToolingMetadata
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+
+> Task :app:stripReleaseDebugSymbols
+Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libffmpegJNI.so.
+
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:generateReleaseResValues
+> Task :app:extractReleaseNativeSymbolTables
+> Task :app:checkReleaseAarMetadata
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :app:processReleaseMainManifest
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :app:javaPreCompileRelease
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :app:mergeReleaseStartupProfile
+> Task :app:mergeReleaseShaders
+> Task :app:mergeReleaseArtProfile
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:collectReleaseDependencies
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :app:mergeReleaseResources
+> Task :app:processReleaseResources
+> Task :app:convertLinkedResourcesToProtoRelease
+
+> Task :app:compileReleaseKotlin
+e: The daemon has terminated unexpectedly on startup attempt #1 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+e: The daemon has terminated unexpectedly on startup attempt #2 with error code: 0. The daemon process output:
+    1. Kotlin compile daemon is ready
+Problems may have occurred during auto-selection of GC. The preferred GC is Parallel GC.
+If the problems persist, try adding the JVM option to the Kotlin daemon JVM arguments: -XX:-UseParallelGC.
+GC auto-selection logic is disabled temporary for the next daemon startup.
+w: file:///home/runner/work/android-iptv-player/android-iptv-player/app/src/main/java/dev/ahmed/iptv/data/Repo.kt:203:11 'var isLenient: Boolean' is deprecated. Deprecated in Java.
+w: file:///home/runner/work/android-iptv-player/android-iptv-player/app/src/main/java/dev/ahmed/iptv/ui/Common.kt:223:42 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///home/runner/work/android-iptv-player/android-iptv-player/app/src/main/java/dev/ahmed/iptv/ui/Common.kt:235:39 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///home/runner/work/android-iptv-player/android-iptv-player/app/src/main/java/dev/ahmed/iptv/ui/LiveScreens.kt:145:53 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+w: file:///home/runner/work/android-iptv-player/android-iptv-player/app/src/main/java/dev/ahmed/iptv/ui/PlayerScreen.kt:279:97 'val Icons.Filled.List: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.List.
+
+> Task :app:compileReleaseJavaWithJavac NO-SOURCE
+> Task :app:mergeReleaseGeneratedProguardFiles
+> Task :app:processReleaseJavaRes
+> Task :app:expandReleaseArtProfileWildcards
+> Task :app:mergeReleaseJavaResource
+> Task :app:minifyReleaseWithR8
+> Task :app:compileReleaseArtProfile
+> Task :app:shrinkReleaseRes
+> Task :app:convertShrunkResourcesToBinaryRelease
+> Task :app:optimizeReleaseResources
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :app:assembleRelease
+
+> Task :app:packageWebos
+npm warn deprecated rimraf@2.6.3: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated npmlog@7.0.1: This package is no longer supported.
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated rimraf@2.7.1: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+npm warn deprecated are-we-there-yet@4.0.2: This package is no longer supported.
+npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+npm warn deprecated gauge@5.0.2: This package is no longer supported.
+npm warn deprecated fstream@1.0.12: This package is no longer supported.
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+[Warning] The 'requiredACG' field is not defined in appinfo.json.
+ACG (Access Control Group) controls an app's permission to call Luna Bus APIs on webOS.
+ Depending on the target webOS version, this field can be required for every app to pass the submission eligibility check - even apps that do not call any Luna APIs. 
+If your app does not use Luna APIs, declare an empty array: "requiredACG": []
+For details, see: https://webostv.developer.lge.com/develop/guides/acg-guide
+Create dev.ahmed.iptv_1.0.30_all.ipk to /home/runner/work/android-iptv-player/android-iptv-player/build/webos/ipk
+[Warning] The Node.js version available on the target device may be lower than your development environment. Check the supported version before using recent Node.js features:
+https://webostv.developer.lge.com/develop/guides/js-service-basics#supported-nodejs-version
+Success
+total 28
+drwxr-xr-x  2 runner runner  4096 Oct 18 05:51 .
+drwxr-xr-x 13 runner runner  4096 Oct 18 05:51 ..
+-rw-r--r--  1 runner runner 18136 Oct 18 05:51 IPTV-Player-LG-webOS-1.0.30.ipk
+
+> Task :app:rokuImages
+> Task :app:packageRoku
+> Task :app:copy32bitApk
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/release-1792302505916.json
+
+BUILD SUCCESSFUL in 2m 57s
+49 actionable tasks: 48 executed, 1 up-to-date
