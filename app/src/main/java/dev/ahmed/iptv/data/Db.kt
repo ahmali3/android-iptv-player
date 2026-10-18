@@ -181,6 +181,10 @@ class Db(context: Context) : SQLiteOpenHelper(context, "iptv.db", null, 1) {
         ) else writableDatabase.delete("favorites", "playlist_id=? AND ckey=?", arrayOf(playlistId.toString(), key))
     }
 
+    fun isFavorite(playlistId: Long, key: String): Boolean = readableDatabase.rawQuery(
+        "SELECT 1 FROM favorites WHERE playlist_id = ? AND ckey = ?", arrayOf(playlistId.toString(), key)
+    ).use { it.moveToFirst() }
+
     fun addRecent(playlistId: Long, key: String, ts: Long) {
         writableDatabase.insertWithOnConflict(
             "recent", null,
