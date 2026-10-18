@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,9 +30,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -108,13 +114,14 @@ fun progressOf(start: Long, stop: Long, now: Long): Float =
 
 @Composable
 fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier) {
+    var focused by remember { mutableStateOf(false) }
     Row(
         modifier
             .fillMaxWidth()
             .height(46.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(Pal.surface)
-            .border(1.dp, Pal.line, RoundedCornerShape(12.dp))
+            .border(if (focused) 2.dp else 1.dp, if (focused) Pal.accent else Pal.line, RoundedCornerShape(12.dp))
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -128,7 +135,7 @@ fun SearchField(value: String, onChange: (String) -> Unit, placeholder: String, 
                 singleLine = true,
                 textStyle = TextStyle(color = Pal.text, fontSize = 15.sp),
                 cursorBrush = SolidColor(Pal.accent),
-                modifier = Modifier.fillMaxWidth().testTag("search"),
+                modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused }.testTag("search"),
             )
         }
         if (value.isNotEmpty()) {
@@ -217,6 +224,36 @@ fun BottomBar(tab: Tab, onTab: (Tab) -> Unit) {
             BarItem("Guide", Icons.Filled.DateRange, tab == Tab.GUIDE) { onTab(Tab.GUIDE) }
             BarItem("Playlists", Icons.Filled.Menu, tab == Tab.PLAYLISTS) { onTab(Tab.PLAYLISTS) }
         }
+    }
+}
+
+/** On TVs the tabs sit in a column on the left, like other TV apps. */
+@Composable
+fun SideBar(tab: Tab, onTab: (Tab) -> Unit) {
+    Column(Modifier.width(170.dp).fillMaxHeight().padding(end = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("IPTV Player", color = Pal.accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 18.dp))
+        SideItem("Live", Icons.Filled.List, tab == Tab.LIVE) { onTab(Tab.LIVE) }
+        SideItem("Guide", Icons.Filled.DateRange, tab == Tab.GUIDE) { onTab(Tab.GUIDE) }
+        SideItem("Playlists", Icons.Filled.Menu, tab == Tab.PLAYLISTS) { onTab(Tab.PLAYLISTS) }
+    }
+}
+
+@Composable
+private fun SideItem(label: String, icon: ImageVector, selected: Boolean, onClick: () -> Unit) {
+    val color = if (selected) Pal.accent else Pal.text2
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (selected) Pal.surface2 else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp)
+            .testTag("tab_$label"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
+        Text(label, color = color, fontSize = 16.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
     }
 }
 
