@@ -1,7 +1,10 @@
 package dev.ahmed.iptv
 
 import android.app.Application
+import android.app.UiModeManager
 import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -36,6 +39,12 @@ class App : Application(), ImageLoaderFactory {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val refreshLock = Mutex()
 
+    /** True on Android TV / Google TV (Nvidia Shield, Chromecast with Google TV, TVs, Fire TV). */
+    val isTv: Boolean by lazy {
+        packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) ||
+            (getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager)?.currentModeType == Configuration.UI_MODE_TYPE_TELEVISION
+    }
+
     /** Id of the playlist being browsed (0 = none). */
     var activePlaylistId by mutableLongStateOf(0L)
         private set
@@ -58,7 +67,8 @@ class App : Application(), ImageLoaderFactory {
         player = PlayerHolder(this, repo, cast)
         activePlaylistId = prefs().getLong(KEY_ACTIVE, 0L)
         // Start Cast once the first screen is up, so it doesn't slow down app start.
-        android.os.Looper.myQueue().addIdleHandler { cast.init(); false }
+        // A TV is something you cast *to*, so the sender side isn't needed there.
+        if (!isTv) android.os.Looper.myQueue().addIdleHandler { cast.init(); false }
     }
 
     private fun prefs() = getSharedPreferences("settings", Context.MODE_PRIVATE)

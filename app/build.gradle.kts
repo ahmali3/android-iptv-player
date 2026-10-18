@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Release builds produce two APKs: 64-bit (phones, Nvidia Shield) and 32-bit (most TV sticks and smart TVs).
+val releaseBuild = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+val buildNumber = System.getenv("BUILD_NUMBER") ?: "1"
+
 android {
     namespace = "dev.ahmed.iptv"
     compileSdk = 35
@@ -12,10 +16,8 @@ android {
         applicationId = "dev.ahmed.iptv"
         minSdk = 26 // Android 8.0
         targetSdk = 35
-        versionCode = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
-        versionName = "1.0." + (System.getenv("BUILD_NUMBER") ?: "1")
-        // The phone is 64-bit ARM only, so ship only that native code.
-        ndk { abiFilters += listOf("arm64-v8a") }
+        versionCode = buildNumber.toInt()
+        versionName = "1.0.$buildNumber"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -31,14 +33,23 @@ android {
 
     buildTypes {
         debug {
-            // Debug builds also run on the x86_64 emulator used by the automated tests.
-            ndk { abiFilters += listOf("x86_64") }
+            // Debug builds run on the x86_64 emulator used by the automated tests.
+            if (!releaseBuild) ndk { abiFilters += listOf("x86_64", "arm64-v8a") }
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = releaseBuild
+            reset()
+            include("arm64-v8a", "armeabi-v7a")
+            isUniversalApk = false
         }
     }
 
@@ -108,6 +119,26 @@ dependencies {
     androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+
+// Name the release APKs: the 64-bit one keeps the usual name, the 32-bit one gets a suffix.
+@Suppress("DEPRECATION")
+android.applicationVariants.all {
+    val variant = this
+    outputs.all {
+        val out = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+        if (variant.buildType.name == "release") {
+            out.outputFileName = if (out.getFilter("ABI") == "armeabi-v7a") "app-release-32bit.apk" else "app-release.apk"
+        }
+    }
+}
+
+// The CI publishes everything in out/; put the 32-bit APK there next to the 64-bit one.
+val copy32bitApk = tasks.register<Copy>("copy32bitApk") {
+    from(layout.buildDirectory.file("outputs/apk/release/app-release-32bit.apk"))
+    into(rootProject.layout.projectDirectory.dir("out"))
+    rename { "IPTV-Player-1.0.$buildNumber-32bit.apk" }
+}
+tasks.matching { it.name == "assembleRelease" }.configureEach { finalizedBy(copy32bitApk) }
 
 // Fail the build early if code calls an Android API that older supported phones don't have.
 tasks.matching { it.name == "testDebugUnitTest" }.configureEach { dependsOn("lintDebug") }
