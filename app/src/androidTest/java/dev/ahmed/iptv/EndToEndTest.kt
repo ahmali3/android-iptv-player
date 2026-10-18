@@ -208,6 +208,7 @@ class EndToEndTest {
         waitFor(30_000, "playback after zap") { App.instance.player.isPlaying }
 
         // ---- TV remote: with the controls hidden, up/down change channel and OK shows the controls ----
+        rule.mainClock.advanceTimeBy(6_000) // the test clock is simulated; let the 4 s auto-hide run
         waitFor(15_000, "controls hide by themselves") { !exists("playerMenu") }
         key(KeyEvent.KEYCODE_DPAD_UP)
         waitFor(what = "remote up -> next channel") { App.instance.player.channel?.name == "Pitch One" }
@@ -222,7 +223,7 @@ class EndToEndTest {
         assertTrue("OK must not also pause", App.instance.player.isPlaying || App.instance.player.buffering)
         waitFor(30_000, "playback after remote zapping") { App.instance.player.isPlaying }
 
-        // ---- "Open in another app" hands the stream to VLC & co. through the system chooser ----
+        // ---- "Open in another app" hands the stream to other players through the system chooser ----
         var chooser: Intent? = null
         val monitor = object : Instrumentation.ActivityMonitor() {
             override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
