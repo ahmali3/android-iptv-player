@@ -103,15 +103,15 @@ fun CastDialog(onDismiss: () -> Unit) {
     )
 }
 
-/** Opens the stream in another video app (VLC, MX Player, Just Player…). */
+/** Opens the stream in another video player app installed on the device. */
 fun openInOtherApp(context: Context, url: String, title: String) {
     val view = Intent(Intent.ACTION_VIEW)
         .setDataAndType(Uri.parse(url), "video/*")
-        .putExtra("title", title) // VLC and MX Player show this as the title
+        .putExtra("title", title) // most players show this as the title
     val chooser = Intent.createChooser(view, "Play with").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     try {
         context.startActivity(chooser)
     } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, "No other video player is installed. Try VLC from the Play Store.", Toast.LENGTH_LONG).show()
+        Toast.makeText(context, "No other video player app is installed.", Toast.LENGTH_LONG).show()
     }
 }
