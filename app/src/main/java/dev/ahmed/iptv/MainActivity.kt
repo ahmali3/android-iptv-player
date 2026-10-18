@@ -13,6 +13,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
@@ -21,8 +23,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -40,6 +44,7 @@ import dev.ahmed.iptv.ui.Pal
 import dev.ahmed.iptv.ui.PlayerScreen
 import dev.ahmed.iptv.ui.PlaylistSheet
 import dev.ahmed.iptv.ui.PlaylistsScreen
+import dev.ahmed.iptv.ui.SideBar
 import dev.ahmed.iptv.ui.Tab
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -65,6 +70,9 @@ class MainActivity : ComponentActivity() {
         var player by rememberSaveable { mutableStateOf(false) }
         var sheet by rememberSaveable { mutableStateOf(false) }
         var editingId by rememberSaveable { mutableStateOf(0L) }
+        // Keeps the browsing screens' state (search text and results, scroll position) while the player is open.
+        val browseState = rememberSaveableStateHolder()
+        val tv = app.isTv
 
         val playlists by produceState<List<Playlist>?>(null, app.dataVersion) {
             value = withContext(Dispatchers.IO) { app.db.playlists() }
@@ -95,28 +103,43 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        @Composable
+        fun Content(modifier: Modifier) {
+            Box(modifier) {
+                val list = playlists
+                when {
+                    list == null -> Unit
+                    active == null && tab != Tab.PLAYLISTS -> EmptyState(
+                        "Welcome",
+                        "Add your provider's Xtream Codes login or an M3U playlist link to start watching.",
+                        "Add playlist",
+                    ) { editingId = 0L; sheet = true }
+                    tab == Tab.LIVE && openList == null -> GroupsScreen(active!!, list, { openList = it }, ::play) { editingId = 0L; sheet = true }
+                    tab == Tab.LIVE -> ChannelsScreen(active!!, openList!!, { openList = null }, ::play)
+                    tab == Tab.GUIDE -> GuideScreen(active!!, ::play, ::catchup)
+                    else -> PlaylistsScreen(list, active?.id ?: 0L, { editingId = 0L; sheet = true }) { editingId = it.id; sheet = true }
+                }
+            }
+        }
+        val onTab: (Tab) -> Unit = { if (it == tab && it == Tab.LIVE) openList = null; tab = it }
+
         Box(Modifier.fillMaxSize().background(Pal.bg)) {
             if (player) {
                 PlayerScreen(inPip, onClose = { player = false }, onPip = { enterPip() })
-            } else {
-                Column(Modifier.fillMaxSize()) {
-                    Box(Modifier.weight(1f).statusBarsPadding()) {
-                        val list = playlists
-                        when {
-                            list == null -> Unit
-                            active == null && tab != Tab.PLAYLISTS -> EmptyState(
-                                "Welcome",
-                                "Add your provider's Xtream Codes login or an M3U playlist link to start watching.",
-                                "Add playlist",
-                            ) { editingId = 0L; sheet = true }
-                            tab == Tab.LIVE && openList == null -> GroupsScreen(active!!, list, { openList = it }, ::play) { editingId = 0L; sheet = true }
-                            tab == Tab.LIVE -> ChannelsScreen(active!!, openList!!, { openList = null }, ::play)
-                            tab == Tab.GUIDE -> GuideScreen(active!!, ::play, ::catchup)
-                            else -> PlaylistsScreen(list, active?.id ?: 0L, { editingId = 0L; sheet = true }) { editingId = it.id; sheet = true }
+            } else browseState.SaveableStateProvider("browse") {
+                if (tv) {
+                    // TV: tabs on the left, and a margin so nothing sits at the very edge of the screen.
+                    Row(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp)) {
+                        SideBar(tab, onTab)
+                        Column(Modifier.weight(1f)) {
+                            Content(Modifier.weight(1f))
+                            MiniPlayer { player = true }
                         }
                     }
+                } else Column(Modifier.fillMaxSize()) {
+                    Content(Modifier.weight(1f).statusBarsPadding())
                     MiniPlayer { player = true }
-                    BottomBar(tab) { if (it == tab && it == Tab.LIVE) openList = null; tab = it }
+                    BottomBar(tab, onTab)
                 }
             }
             if (sheet) {

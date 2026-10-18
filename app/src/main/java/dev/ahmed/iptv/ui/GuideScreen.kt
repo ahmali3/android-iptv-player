@@ -1,5 +1,6 @@
 package dev.ahmed.iptv.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -43,6 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -98,6 +105,13 @@ fun GuideScreen(
         }
     }
     var selected by remember { mutableStateOf<Pair<ChannelRow, Program>?>(null) }
+    val watchFocus = remember { FocusRequester() }
+    val inputMode = LocalInputModeManager.current
+    LaunchedEffect(selected) {
+        // With a remote, jump to the card's Watch button.
+        if (selected != null && inputMode.inputMode == InputMode.Keyboard) runCatching { watchFocus.requestFocus() }
+    }
+    BackHandler(enabled = selected != null) { selected = null }
 
     val density = LocalDensity.current
     val pxPerMin = with(density) { DP_PER_MIN.dp.toPx() }
@@ -150,7 +164,17 @@ fun GuideScreen(
                     else -> Box(Modifier.weight(1f)) {
                         LazyColumn(Modifier.fillMaxSize()) {
                             items(d.channels, key = { it.id }) { ch ->
-                                GuideRow(ch, d.programs[ch.epgId].orEmpty(), now, logoW, { offset }, ::xOf) { p -> selected = ch to p }
+                                GuideRow(
+                                    ch, d.programs[ch.epgId].orEmpty(), now, logoW, { offset }, ::xOf,
+                                    onFocusProgram = { p ->
+                                        // Moving through the guide with a remote: scroll so the focused show is visible.
+                                        val start = xOf(p.start)
+                                        val end = xOf(p.stop)
+                                        if (end < offset + 40f || start > offset + trackW * 0.8f) {
+                                            offset = (start - trackW * 0.1f).coerceIn(0f, maxOffset)
+                                        }
+                                    },
+                                ) { p -> selected = ch to p }
                             }
                         }
                         // now line
@@ -167,7 +191,7 @@ fun GuideScreen(
         }
 
         val sel = selected
-        if (sel != null) ProgramCard(sel.first, sel.second, now, onClose = { selected = null },
+        if (sel != null) ProgramCard(sel.first, sel.second, now, watchFocus, onClose = { selected = null },
             onWatch = {
                 val chans = data?.channels.orEmpty()
                 onPlay(chans, chans.indexOfFirst { it.id == sel.first.id }.coerceAtLeast(0))
@@ -209,6 +233,7 @@ private fun GuideRow(
     logoW: androidx.compose.ui.unit.Dp,
     offset: () -> Float,
     xOf: (Long) -> Float,
+    onFocusProgram: (Program) -> Unit,
     onSelect: (Program) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -234,6 +259,7 @@ private fun GuideRow(
                         .height(52.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(if (live) Pal.raised else if (past) Pal.surface else Pal.surface2)
+                        .onFocusChanged { if (it.isFocused) onFocusProgram(p) }
                         .clickable { onSelect(p) }
                         .padding(horizontal = 10.dp, vertical = 7.dp),
                     verticalArrangement = Arrangement.Center,
@@ -262,7 +288,7 @@ private fun GuideRow(
 private val dayFmt = DateTimeFormatter.ofPattern("EEE d MMM")
 
 @Composable
-private fun ProgramCard(ch: ChannelRow, p: Program, now: Long, onClose: () -> Unit, onWatch: () -> Unit, onCatchup: () -> Unit) {
+private fun ProgramCard(ch: ChannelRow, p: Program, now: Long, watchFocus: FocusRequester, onClose: () -> Unit, onWatch: () -> Unit, onCatchup: () -> Unit) {
     val live = p.start <= now && p.stop > now
     val past = p.stop <= now
     val canCatchup = ch.catchupDays > 0 && p.start < now && p.start > now - ch.catchupDays * 24L * 60 * 60_000
@@ -290,7 +316,7 @@ private fun ProgramCard(ch: ChannelRow, p: Program, now: Long, onClose: () -> Un
             Text(p.desc, color = Pal.text2, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(end = 12.dp))
         }
         Row(Modifier.padding(end = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PrimaryButton(if (live) "Watch live" else "Watch channel", onWatch, Modifier.weight(1f))
+            PrimaryButton(if (live) "Watch live" else "Watch channel", onWatch, Modifier.weight(1f).focusRequester(watchFocus))
             if (canCatchup) SecondaryButton(if (past) "Watch from start" else "Start over", onCatchup, Modifier.weight(1f).height(50.dp))
         }
     }
