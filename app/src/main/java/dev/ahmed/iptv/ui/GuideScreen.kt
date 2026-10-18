@@ -238,11 +238,21 @@ private fun GuideRow(
                         .padding(horizontal = 10.dp, vertical = 7.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(
-                        p.title, color = if (past) Pal.muted else Pal.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(span(p.start, p.stop), color = Pal.muted, fontSize = 11.sp, fontFamily = Pal.mono, maxLines = 1)
+                    val blockPx = with(density) { w.coerceAtLeast(8.dp).toPx() }
+                    val keepPx = with(density) { 100.dp.toPx() }
+                    // When a show started before the visible area, keep its title on screen.
+                    Column(
+                        Modifier.offset {
+                            val hidden = offset() - (xOf(p.start) + 2)
+                            IntOffset(hidden.coerceIn(0f, (blockPx - keepPx).coerceAtLeast(0f)).roundToInt(), 0)
+                        },
+                    ) {
+                        Text(
+                            p.title, color = if (past) Pal.muted else Pal.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(span(p.start, p.stop), color = Pal.muted, fontSize = 11.sp, fontFamily = Pal.mono, maxLines = 1)
+                    }
                 }
             }
         }

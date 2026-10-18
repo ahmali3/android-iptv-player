@@ -1,6 +1,9 @@
 package dev.ahmed.iptv
 
+import android.app.Instrumentation
+import android.content.Intent
 import android.graphics.Bitmap
+import android.util.Log
 import android.os.SystemClock
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -141,6 +144,12 @@ class EndToEndTest {
         return result!!.getOrThrow()
     }
 
+    /** Brings back the player controls, which hide after a few seconds. */
+    private fun showControls() {
+        if (!exists("playerMenu")) rule.onNodeWithTag("player").performClick()
+        waitFor(what = "player controls") { exists("playerMenu") }
+    }
+
     private fun back() {
         rule.runOnUiThread { rule.activity.onBackPressedDispatcher.onBackPressed() }
         rule.waitForIdle()
@@ -189,6 +198,43 @@ class EndToEndTest {
         rule.runOnUiThread { App.instance.player.zap(+1) }
         waitFor(what = "zap to next channel") { App.instance.player.channel?.name == "Pitch Two" }
         waitFor(30_000, "playback after zap") { App.instance.player.isPlaying }
+
+        // ---- "Open in another app" hands the stream to VLC & co. through the system chooser ----
+        var chooser: Intent? = null
+        val monitor = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+                if (intent.action != Intent.ACTION_CHOOSER) return null
+                chooser = intent
+                return Instrumentation.ActivityResult(0, null) // don't actually open the chooser
+            }
+        }
+        InstrumentationRegistry.getInstrumentation().addMonitor(monitor)
+        showControls()
+        rule.onNodeWithTag("playerMenu").performClick()
+        waitFor(what = "player menu") { exists("openExternal") }
+        screenshot("09_player_menu")
+        rule.onNodeWithTag("openExternal").performClick()
+        waitFor(what = "chooser intent") { chooser != null }
+        InstrumentationRegistry.getInstrumentation().removeMonitor(monitor)
+        @Suppress("DEPRECATION")
+        val view = chooser!!.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
+        assertEquals(Intent.ACTION_VIEW, view.action)
+        assertTrue("stream url: ${view.data}", view.data.toString().endsWith("/live/demo/secret/102.ts"))
+        assertEquals("Pitch Two", view.getStringExtra("title"))
+        waitFor(what = "phone pauses for the other app") { !App.instance.player.isPlaying }
+
+        // ---- Cast: the TV picker opens (there are no TVs on the test network) ----
+        val castAvailable = onUi { App.instance.player.cast.available }
+        Log.i("dev.ahmed.test", "cast available on emulator: $castAvailable")
+        if (castAvailable) {
+            showControls()
+            rule.onNodeWithTag("castButton").performClick()
+            waitFor(what = "cast dialog") { textExists("Looking for TVs") || exists("castNone") }
+            screenshot("10_cast")
+            rule.onNodeWithText("Close").performClick()
+            waitFor(what = "cast dialog closed") { !exists("castDialog") }
+        }
+        assertTrue("not casting", !onUi { App.instance.player.cast.casting })
 
         back() // close player
         waitFor(what = "mini player") { exists("miniPlayer") }
