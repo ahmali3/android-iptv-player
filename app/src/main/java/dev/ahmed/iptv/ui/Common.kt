@@ -179,7 +179,7 @@ fun MiniPlayer(onOpen: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(ch.name, color = Pal.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                holder.error ?: holder.catchupTitle ?: ch.nowTitle ?: "Live",
+                holder.error ?: holder.cast.deviceName?.let { "Playing on $it" } ?: holder.catchupTitle ?: ch.nowTitle ?: "Live",
                 color = Pal.text2, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }

@@ -29,9 +29,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -50,6 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -84,10 +88,16 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
     var showList by rememberSaveable { mutableStateOf(false) }
     var aspect by rememberSaveable { mutableIntStateOf(0) }
     var trackDialog by remember { mutableStateOf<Int?>(null) }
+    var castDialog by remember { mutableStateOf(false) }
+    var menu by remember { mutableStateOf(false) }
     val now = rememberNow()
+    val context = LocalContext.current
+    val cast = holder.cast
+    val casting = cast.casting
 
-    LaunchedEffect(overlay, poke, showList) {
-        if (overlay && !showList) {
+    LaunchedEffect(overlay, poke, showList, casting, menu) {
+        // While casting there is no video on the phone, so the controls stay up.
+        if (overlay && !showList && !casting && !menu) {
             delay(4_000)
             overlay = false
         }
@@ -150,6 +160,19 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
             modifier = Modifier.fillMaxSize(),
         )
 
+        if (casting) {
+            Column(
+                // Sits above the play/pause button in the middle.
+                Modifier.align(Alignment.Center).padding(bottom = 140.dp).testTag("castingNow"),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (ch != null) ChannelLogo(ch.name, ch.logo, 56.dp)
+                Text("Playing on ${cast.deviceName}", color = Pal.text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                if (cast.viaPhone) Text("Sent through your phone", color = Pal.muted, fontSize = 13.sp)
+            }
+        }
+
         if (holder.buffering && holder.error == null) {
             CircularProgressIndicator(color = Pal.accent, modifier = Modifier.align(Alignment.Center).size(48.dp))
         }
@@ -180,11 +203,31 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
                         Pill(if (holder.catchupTitle != null) "CATCH-UP" else "LIVE")
                     }
                     Box(Modifier.weight(1f))
-                    TextAction("Audio") { trackDialog = MC.TRACK_TYPE_AUDIO; touch() }
-                    TextAction("Subtitles") { trackDialog = MC.TRACK_TYPE_TEXT; touch() }
-                    TextAction(aspectModes[aspect].second) { aspect = (aspect + 1) % aspectModes.size; touch() }
-                    TextAction("PiP") { onPip() }
+                    if (!casting) {
+                        TextAction("Audio") { trackDialog = MC.TRACK_TYPE_AUDIO; touch() }
+                        TextAction("Subtitles") { trackDialog = MC.TRACK_TYPE_TEXT; touch() }
+                        TextAction(aspectModes[aspect].second) { aspect = (aspect + 1) % aspectModes.size; touch() }
+                    }
+                    if (cast.available) TextAction(if (casting) "Casting" else "Cast", if (casting) Pal.accent else Pal.text, "castButton") { castDialog = true; touch() }
                     IconButton(onClick = { showList = !showList; touch() }) { Icon(Icons.Filled.List, "Channel list", tint = if (showList) Pal.accent else Pal.text) }
+                    Box {
+                        IconButton(onClick = { menu = true; touch() }, modifier = Modifier.testTag("playerMenu")) { Icon(Icons.Filled.MoreVert, "More", tint = Pal.text) }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            if (!casting) DropdownMenuItem(text = { Text("Picture-in-picture") }, onClick = { menu = false; onPip() })
+                            DropdownMenuItem(
+                                text = { Text("Open in another app (VLC…)") },
+                                modifier = Modifier.testTag("openExternal"),
+                                onClick = {
+                                    menu = false
+                                    val url = holder.currentUrl
+                                    if (url != null && ch != null) {
+                                        if (!casting) holder.pause()
+                                        openInOtherApp(context, url, holder.catchupTitle?.let { "${ch.name} · $it" } ?: ch.name)
+                                    }
+                                },
+                            )
+                        }
+                    }
                 }
                 // center play/pause
                 Box(
@@ -221,6 +264,7 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
         if (showList && !inPip) ChannelPanel(Modifier.align(Alignment.CenterEnd)) { showList = false }
 
         trackDialog?.let { type -> TrackDialog(type) { trackDialog = null } }
+        if (castDialog) CastDialog { castDialog = false }
     }
 }
 
@@ -236,7 +280,7 @@ private fun ChannelPanel(modifier: Modifier, onClose: () -> Unit) {
     ) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Channels", color = Pal.text, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            TextAction("Close", onClose)
+            TextAction("Close", onClick = onClose)
         }
         LazyColumn(state = state, modifier = Modifier.testTag("channelPanel")) {
             itemsIndexed(list, key = { _, c -> c.id }) { i, c ->
@@ -308,9 +352,10 @@ private fun Pill(text: String) {
 }
 
 @Composable
-private fun TextAction(label: String, onClick: () -> Unit) {
+private fun TextAction(label: String, color: Color = Pal.text, tag: String? = null, onClick: () -> Unit) {
     Text(
-        label, color = Pal.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).height(44.dp).padding(horizontal = 10.dp, vertical = 13.dp),
+        label, color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).height(44.dp).padding(horizontal = 10.dp, vertical = 13.dp)
+            .then(if (tag != null) Modifier.testTag(tag) else Modifier),
     )
 }
