@@ -19,12 +19,14 @@ The app has no ads, no accounts and no tracking. It doesn't include any channels
 - **Catch-up.** On Xtream channels that support it, you can watch a program from the start or replay one that already aired.
 - **Favorites and Recent.** Long-press a channel to add it to Favorites. Channels you watched recently are listed under Recent.
 - **Player.** Swipe up or down to change channels, and open a quick channel list without leaving the video. You can choose audio and subtitle tracks, switch between Fit, Zoom and Stretch, and use picture-in-picture. If a stream drops, the app reconnects on its own.
+- **Cast to your TV.** Send the channel you're watching to a Chromecast or any TV with Google Cast built in (Android TV / Google TV, Nvidia Shield, many Sony, TCL and Hisense TVs). If the TV can't load a channel directly, the app sends it through your phone instead.
+- **Open in another player.** Hand the channel to VLC, MX Player or any other video app installed on your phone.
 - **Dolby Digital (AC3 / E-AC3) and DTS audio.** The app includes its own decoder for these, so channels with surround sound still have audio on phones that can't decode it themselves.
 - **Light and quick.** The app is written in Kotlin and uses the phone's hardware video decoder. Channels and the guide are cached on the phone, so the app opens instantly.
 
 ## Install on your phone
 
-You need an Android phone running **Android 12 or newer** with a **64-bit** processor. That covers almost every phone from 2019 onward.
+You need an Android phone running **Android 8.0 or newer** with a **64-bit** processor. That covers nearly every phone from the last several years.
 
 1. On your phone, open the **[latest release](../../releases/latest)** page.
 2. Under **Assets**, tap the file named `IPTV-Player-1.0.xx.apk` to download it.
@@ -54,7 +56,7 @@ Tip: if you have both an M3U link and an Xtream login from the same provider, us
 | **Live** | Pick a group, then a channel. Favorites, Recent and All are at the top. Search finds groups and channels. **Edit** hides or shows groups. The ⟳ button reloads the playlist. |
 | **Channel list** | Tap to play. **Long-press** to add or remove a favorite. |
 | **Guide** | Drag sideways to move through time. **Now** jumps back to the current time. Tap a program to see its details, watch the channel, or use catch-up if it's available. |
-| **Player** | Tap to show or hide the controls, double-tap to pause, and **swipe up or down to change channels**. The top bar has Audio, Subtitles, the picture size, picture-in-picture and the channel list. |
+| **Player** | Tap to show or hide the controls, double-tap to pause, and **swipe up or down to change channels**. The top bar has Audio, Subtitles, the picture size, **Cast** and the channel list. **⋮** has picture-in-picture and **Open in another app** (VLC and others). |
 | **Playlists** | Tap a playlist to switch to it. Use **⋮** to refresh, edit or delete it. |
 
 ## Troubleshooting
@@ -63,6 +65,9 @@ Tip: if you have both an M3U link and an Xtream login from the same provider, us
 - **"The provider refused this stream":** most subscriptions only allow one or two streams at once. Close the app on your other devices and try again.
 - **No guide for some channels:** the provider's guide doesn't list those channels. The app also matches channels by name, but some still won't have guide data.
 - **Login failed:** check the server URL, including `http://` and the port, and your username and password. Many providers lock the account after an expiry date, which the Playlists screen shows.
+- **Cast doesn't find your TV:** the phone and the TV have to be on the same Wi-Fi network (not a guest network). On some routers, turn off "AP isolation" or "client isolation".
+- **A channel won't play on the TV:** the app first asks the TV to play the provider's HLS stream, then tries again through your phone. If it still fails, the provider doesn't offer that channel in a format TVs can cast. Use **⋮ → Open in another app** or play it on the phone.
+- **Casting stops when the phone sleeps:** this only happens for channels sent through the phone. Keep the app allowed to run in the background in your battery settings.
 
 ## Privacy
 
@@ -81,12 +86,12 @@ gradle :app:assembleRelease        # app/build/outputs/apk/release/app-release.a
 
 Every push to `main` runs [`.github/workflows/build.yml`](.github/workflows/build.yml). That workflow:
 
-1. runs the unit tests for the M3U, XMLTV and Xtream parsers;
+1. checks that no code needs a newer Android version than 8.0, then runs the unit tests for the M3U, XMLTV and Xtream parsers and the Cast relay;
 2. builds the release APK, shrunk with R8 and containing arm64 code only;
-3. starts an Android emulator and runs an **end-to-end test** ([`EndToEndTest.kt`](app/src/androidTest/java/dev/ahmed/iptv/EndToEndTest.kt)) against a fake provider. The test adds an Xtream playlist, checks the groups, channels and guide, plays a stream with H.264 video and AC3 audio, changes channels, and adds an M3U playlist;
+3. starts an Android emulator and runs an **end-to-end test** ([`EndToEndTest.kt`](app/src/androidTest/java/dev/ahmed/iptv/EndToEndTest.kt)) against a fake provider. The test adds an Xtream playlist, checks the groups, channels and guide, plays a stream with H.264 video and AC3 audio, changes channels, hands the stream to another player app, opens the Cast picker, and adds an M3U playlist;
 4. publishes the APK as a GitHub release if everything passed.
 
-The signing key is created on the first build and kept in the repository on purpose, so that anyone can rebuild an identical, updatable app. If you fork this project to distribute it yourself, delete `app/release.keystore.b64` so your fork creates its own key.
+The signing key is kept in the repository on purpose, so that anyone can rebuild an identical, updatable app. If you fork this project to distribute it yourself, generate your own key.
 
 ## Disclaimer
 
