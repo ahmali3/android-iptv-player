@@ -102,8 +102,8 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: IPTV Player 1.0.${{ github.run_number }}
           make_latest: true
-          files: 
-          body: out/*
+          files: out/*
+          body: |
             Download **IPTV-Player-1.0.${{ github.run_number }}.apk** below and open it on your Android phone to install.
             First time? See the install guide in the README. Updates install over the old version and keep your playlists.
 
