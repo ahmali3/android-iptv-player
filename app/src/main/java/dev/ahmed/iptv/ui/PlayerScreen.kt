@@ -287,7 +287,7 @@ fun PlayerScreen(inPip: Boolean, onClose: () -> Unit, onPip: () -> Unit) {
                             )
                             if (!casting) DropdownMenuItem(text = { Text("Picture-in-picture") }, onClick = { menu = false; onPip() })
                             DropdownMenuItem(
-                                text = { Text("Open in another app (VLC…)") },
+                                text = { Text("Open in another app") },
                                 modifier = Modifier.testTag("openExternal"),
                                 onClick = {
                                     menu = false
