@@ -106,16 +106,15 @@ fun PlaylistsScreen(playlists: List<Playlist>, activeId: Long, onAdd: () -> Unit
         AlertDialog(
             onDismissRequest = { confirmDelete = null },
             title = { Text("Delete ${p.name}?") },
-            text = { Text("Its channels, favorites and guide data will be removed from this phone.") },
+            text = { Text("Its channels, favorites and guide data will be removed from this device.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = null
                     app.scope.launch {
                         app.db.deletePlaylist(p.id)
-                        val remaining = app.db.playlists()
                         withContext(Dispatchers.Main) {
                             if (app.player.channel != null && p.id == activeId) app.player.stop()
-                            if (p.id == activeId) app.setActive(remaining.firstOrNull()?.id ?: 0L) else app.changed()
+                            if (p.id == activeId) app.setActive(app.db.playlists().firstOrNull()?.id ?: 0L) else app.changed()
                         }
                     }
                 }) { Text("Delete", color = Pal.error) }
@@ -259,7 +258,13 @@ fun PlaylistSheet(editing: Playlist?, onDismiss: () -> Unit) {
                 Text("The guide is loaded from your provider automatically.", color = Pal.muted, fontSize = 12.sp)
             } else {
                 Field("Playlist URL", if (m3u.startsWith("content://")) "Picked file" else m3u, { m3u = it }, "http://…/playlist.m3u", "fieldM3u", KeyboardType.Uri)
-                SecondaryButton("Pick a file instead", { picker.launch(arrayOf("*/*")) })
+                if (!app.isTv) SecondaryButton("Pick a file instead", {
+                    try {
+                        picker.launch(arrayOf("*/*"))
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        error = "This device has no file picker. Paste the playlist link instead."
+                    }
+                })
                 Field("EPG / XMLTV URL (optional)", epg, { epg = it }, "http://…/guide.xml.gz", "fieldEpg", KeyboardType.Uri)
                 Text("Links with a username and password switch to Xtream automatically.", color = Pal.muted, fontSize = 12.sp)
             }
