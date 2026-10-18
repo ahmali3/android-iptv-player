@@ -1,0 +1,14 @@
+{
+  "id": "dev.ahmed.iptv",
+  "version": "1.0.0",
+  "vendor": "IPTV Player",
+  "type": "web",
+  "main": "index.html",
+  "title": "IPTV Player",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#0D0F12",
+  "iconColor": "#0D0F12",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true
+}
