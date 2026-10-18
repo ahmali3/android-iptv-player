@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Background downloads (playlists, guide) so the screen never freezes. -->
+<component name="NetTask" extends="Task">
+  <interface>
+    <field id="request" type="assocarray" />
+    <field id="response" type="assocarray" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/source/core.brs" />
+  <script type="text/brightscript" uri="NetTask.brs" />
+</component>

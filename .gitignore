@@ -9,3 +9,6 @@ app/src/androidTest/assets/
 /out/
 /logs/
 /screens/
+roku/images/*.png
+webos/app/*.png
+webos/service/iptv-core.js

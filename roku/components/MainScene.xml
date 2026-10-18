@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MainScene" extends="Scene">
+  <script type="text/brightscript" uri="pkg:/source/core.brs" />
+  <script type="text/brightscript" uri="MainScene.brs" />
+  <children>
+    <Rectangle id="bg" width="1920" height="1080" color="0x0D0F12FF" />
+    <Group id="home">
+      <Label id="kicker" translation="[96,48]" text="PLAYLIST" color="0x9AA3AEFF" font="font:SmallestSystemFont" />
+      <Label id="title" translation="[96,78]" width="1200" text="IPTV Player" color="0xEDEFF2FF" font="font:LargeBoldSystemFont" />
+      <Label id="listTitle" translation="[680,146]" width="740" color="0x9AA3AEFF" font="font:SmallestBoldSystemFont" />
+      <LabelList id="groups" translation="[96,190]" itemSize="[540,66]" numRows="12" color="0xB4BCC6FF" focusedColor="0x0D0F12FF" focusBitmapBlendColor="0xF5B544FF" vertFocusAnimationStyle="floatingFocus" />
+      <LabelList id="channels" translation="[680,190]" itemSize="[760,66]" numRows="12" color="0xEDEFF2FF" focusedColor="0x0D0F12FF" focusBitmapBlendColor="0xF5B544FF" vertFocusAnimationStyle="floatingFocus" />
+      <Label id="empty" translation="[680,220]" width="740" wrap="true" color="0xB4BCC6FF" visible="false" />
+      <Group id="info" translation="[1480,190]">
+        <Label id="infoName" width="380" wrap="true" maxLines="2" color="0xEDEFF2FF" font="font:MediumBoldSystemFont" />
+        <Label id="infoNowTime" translation="[0,110]" width="380" color="0xF5B544FF" font="font:SmallestBoldSystemFont" />
+        <Label id="infoNow" translation="[0,140]" width="380" wrap="true" maxLines="3" color="0xEDEFF2FF" font="font:SmallSystemFont" />
+        <Label id="infoNextTime" translation="[0,270]" width="380" color="0x9AA3AEFF" font="font:SmallestBoldSystemFont" />
+        <Label id="infoNext" translation="[0,300]" width="380" wrap="true" maxLines="3" color="0xB4BCC6FF" font="font:SmallSystemFont" />
+        <Label id="hint" translation="[0,640]" width="380" wrap="true" color="0x9AA3AEFF" font="font:SmallestSystemFont"
+          text="OK  play&#10;*  add or remove favorite&#10;Back  return to groups" />
+      </Group>
+      <Label id="status" translation="[96,1000]" width="1728" color="0xF5B544FF" font="font:SmallSystemFont" />
+    </Group>
+    <Video id="video" width="1920" height="1080" visible="false" />
+    <Group id="osd" visible="false">
+      <Rectangle translation="[0,800]" width="1920" height="280" color="0x0D0F12E0" />
+      <Label id="osdNum" translation="[96,840]" color="0xF5B544FF" font="font:MediumBoldSystemFont" />
+      <Label id="osdName" translation="[220,830]" width="1500" color="0xEDEFF2FF" font="font:LargeBoldSystemFont" />
+      <Label id="osdNow" translation="[220,910]" width="1500" color="0xB4BCC6FF" font="font:SmallSystemFont" />
+      <Label id="osdNext" translation="[220,960]" width="1500" color="0x9AA3AEFF" font="font:SmallestSystemFont" />
+    </Group>
+    <Label id="perror" translation="[360,480]" width="1200" wrap="true" horizAlign="center" color="0xEDEFF2FF" font="font:MediumSystemFont" visible="false" />
+    <Timer id="epgTimer" duration="0.35" repeat="false" />
+    <Timer id="osdTimer" duration="4" repeat="false" />
+    <Timer id="retryTimer" duration="2" repeat="false" />
+  </children>
+</component>
