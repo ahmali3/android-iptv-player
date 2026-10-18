@@ -1,0 +1,6 @@
+{
+  "name": "dev.ahmed.iptv.service",
+  "version": "1.0.0",
+  "description": "Downloads playlists and the TV guide for IPTV Player",
+  "main": "service.js"
+}

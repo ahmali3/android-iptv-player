@@ -1,0 +1,10 @@
+{
+  "id": "dev.ahmed.iptv.service",
+  "description": "IPTV Player background service",
+  "services": [
+    {
+      "name": "dev.ahmed.iptv.service",
+      "description": "Downloads playlists and the TV guide"
+    }
+  ]
+}
